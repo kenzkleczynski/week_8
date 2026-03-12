@@ -35,10 +35,22 @@ facebook_metrics = fetch_ucirepo(id=368)
 X = facebook_metrics.data.features.copy()
 y = facebook_metrics.data.targets.copy()
 
+# %% Explore
+X.info()
+# one "str" value
+# most variables are complete
+# long anmes
+# varable names category is not type category
+# time data: could be category type
+
+
 
 # %%
 # Combine for easier exploration, using concat to keep features and target together
-df = ...
+df = pd.concat([X, y], axis=1)
+# not merging cause we r just adding a column to the end
+# axis 1 = adding columns, axis 0 = adding rows
+df.head()
 
 # =============================================================================
 # SECTION 1: Kernel Density Plot
@@ -48,12 +60,21 @@ df = ...
 # Use it to understand the shape and spread of a distribution before modeling.
 # %%
 # The raw distribution is heavily right-skewed — a common problem in regression.
-df[
+df["Total Interactions"].plot.kde(color='green')
+plt.title('Kernel Density Plot of Total Interactions')
+plt.xlabel('Total Interactions')
+plt.show()
 
+#if the feautres are hihgly skewked and you use them in a liniearl tradaitonal fasion, then it wont be good.
+# convert if values are skewed.
 # %%
 
 # Let's also look at Page total likes
-df[
+df["Page total likes"].plot.kde(color='green')
+plt.title('Kernel Density Plot of Page Total Likes')
+plt.xlabel('Page Total Likes')
+plt.show()
+#dont convert this one quite yet
 
 # KEY POINT: Skewed distributions can violate regression assumptions.
 # We'll address this with log/arcsinh transformations in Section 5.
@@ -68,14 +89,23 @@ df[
 # %%
 
 # Value counts
-print(df
+print(df["Type"].value_counts())
+print(df["Category"].value_counts())
+#could do the month, day, week too
 
 # %%
 # One-hot encode 'Type' and 'Category' (creates new columns for each level), 
 # replace in the df, using pandas's get_dummies, four attributes, df, columns to encode, 
 # drop_first=True to avoid dummy variable trap, and prefix to add a prefix to the new columns
-df = pd.get_dummies(...
-                
+df = pd.get_dummies(df, columns=['Type', 'Category'], drop_first=True, prefix=['Type', 'Category'])
+#you drop_first true bc of the math part line independent variables, 
+# if you have 3 categories, you only need 2 dummy variables to represent them,
+#  the third one is the reference category when both dummies are 0
+# so connect to linear algebra class and the missing category is the starting points or reference point, 
+# and the other two categories are the deviations from that reference point
+# perfect multicollinearity: you have perfect linear dependence among the features,
+#  which causes problems for regression models. avoid this. or regression equation will be bias, but need to fnction indept
+
 
 # =============================================================================
 # SECTION 3: Regression WITHOUT an Intercept in sklearn
@@ -89,18 +119,35 @@ df = pd.get_dummies(...
 df.info()
 
 # %%
-# Simple example: predict Total Interactions from Page total likes
-X_simple = df[  # sklearn expects 2D array for features
-y_target = df[
+# Simple example: predict Total Interactions from Page total likes, convert to numeric array
+X_simple = df[['Page total likes']].values.reshape(-1, 1)  # sklearn expects 2D array for features
+y_target = df['Total Interactions']
 
-
+# %%
 # With intercept (default), fit.intercept=true/false, (then).fit
-model_with = LinearRegression
+model_with = LinearRegression(fit_intercept=True).fit(X_simple, y_target)
 # Without intercept
-model_without = LinearRegression(
+model_without = LinearRegression(fit_intercept=False).fit(X_simple, y_target)
 
-print(coefficients
+# %%
+print(dir(model_with))
+#dashes in front mean attributes that are set by the user when creating the model, like fit_intercept, 
+# and then fit is the method that you call to fit the model, and then coef_ and intercept_ are the attributes
+# that are learned from the data after fitting the model, and score is a method that calculates R² on the given data.
 
+#with.coef means the output of trained model, the slope, and intercept is the learned intercept, and score is the R² of the model on the given data
+
+# %%
+print("Coefficients (with intercept):", model_with.coef_)
+print("Coefficients (without intercept):", model_without.coef_)
+print(f"Intercept (with intercept): {model_with.intercept_:.2f}")
+print(f"R² (with intercept): {model_with.score(X_simple, y_target):.4f}")
+print(f"R² (without intercept): {model_without.score(X_simple,  y_target):.4f}")
+
+#the better model is the one with the intercept, and the R² is higher, and the slope is different,
+#  and the intercept is not zero, which makes sense given the data distribution
+
+# %%
 # KEY POINT: Unless your domain knowledge justifies it, always keep the intercept.
 # Forcing through the origin biases the slope estimate when y != 0 at x=0.
 
@@ -121,17 +168,19 @@ print(coefficients
 corr_matrix = df.corr()
 corr_with_target = corr_matrix['Total Interactions'].abs().sort_values(ascending=False)
 
+# %%
+# select some kinda middle of the road features
+numeric_features = corr_with_target[5:11].index.tolist()  # Exclude the target variable itself 
 
+# %%
 # visualize the correlations with a matrix plot
-plt.figure(figsize=(8, 6))
 sns.heatmap(corr_matrix[numeric_features + ['Total Interactions']], annot=True, cmap='coolwarm', center=0)
 plt.title('Correlation Matrix')
 plt.show()
+  
+#%%
 
-# %%
-# select some kinda middle of the road features
-numeric_features = corr_with_target[5:11].index.tolist()  # Exclude the target variable itself   
-
+corr_with_target.head()
 # now you try pick some real terrible variables and see what happens
 
 # %%
